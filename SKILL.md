@@ -18,17 +18,25 @@ Run commands from the target workspace; set the shell working directory or `cd` 
 | `agy` | `agy --dangerously-skip-permissions {SESSION} --model claude-opus-4-6-thinking -p "{PROMPT}"` | `agy --dangerously-skip-permissions {SESSION} --model gemini-3.6-flash-high -p "{PROMPT}"` |
 | `agy2` | `agy2 --dangerously-skip-permissions {SESSION} --model claude-opus-4-6-thinking -p "{PROMPT}"` | `agy2 --dangerously-skip-permissions {SESSION} --model gemini-3.6-flash-high -p "{PROMPT}"` |
 
-Use safe shell quoting for prompts. Each added CLI must provide fixed deep and fast commands.
+Use safe shell quoting. Each added CLI must provide fixed deep and fast commands.
+
+Set `{SESSION}` to:
+
+- empty for a new conversation;
+- `--conversation "{CONVERSATION_ID}"` to continue an exact conversation;
+- `--continue` only when the latest conversation for that pool member and workspace is certainly the intended workstream.
 
 ## Routing and conversations
 
 - Codex handles lightweight management, all Git mutations, targeted verification, and requested commits.
 - Deep model: novel ideas, hard reasoning, architecture, experiment design, ambiguous decisions, difficult diagnosis, and surprising results.
 - Fast model: implementation, search, debugging, tests, experiments, data processing, and routine edits.
-- Mixed task: normally obtain one concise deep plan, then implement with the fast model. Keep both steps in the same CLI conversation when context helps.
-- Give each delegation a meaningful work unit; do not fragment one coherent task into many calls.
-- Keep a continuing workstream on the same healthy pool member and conversation. Set `{SESSION}` to `--continue` only for the same workstream, CLI, and workspace; otherwise omit it.
-- After switching pool members, the first call omits `--continue` and receives a concise handoff. Keep using that conversation for later related milestones unless the context is polluted or the workstream changes.
+- Mixed task: normally obtain one concise deep plan, then implement with the fast model. Reuse the same conversation when context helps; changing the model does not require a new workstream.
+- Give each coherent task a stable workstream identity and a meaningful delegation unit.
+- Prefer exact continuation by conversation ID. Codex should retain a local mapping of workspace, pool member, workstream, and conversation ID when the ID is available from CLI metadata or cache.
+- Never use `--continue` after another workstream has used the same pool member and workspace, or when parallel calls make the latest conversation ambiguous.
+- If the intended conversation ID is unknown and `--continue` is ambiguous, start a new conversation with a concise handoff rather than risk replying in the wrong thread.
+- After switching pool members, start a new conversation with a concise handoff; conversations are not shared across members.
 
 ## Git boundary
 
@@ -49,11 +57,11 @@ Read-only Git inspection is allowed. Do not run Git commands that change reposit
 - Use two only for independent tasks that save meaningful time and fit available memory; serialize memory-heavy work or when the machine is under pressure.
 - Never parallelize dependent stages, overlapping file writes, shared mutable outputs, conflicting experiments, or shared Git mutation.
 - For two writers, Codex first provides separate worktrees or clearly disjoint directories. Only Codex may create or manage worktrees.
-- Allow at most one active `--continue` process per pool member. Give parallel agents explicit, non-overlapping scopes; Codex integrates after both finish.
+- Run at most one process per pool member. Give parallel agents distinct workstreams and non-overlapping scopes; Codex integrates after both finish.
 
 ## Delegation prompt
 
-Send only the objective, constraints, relevant paths, assigned scope, completion criteria, and the Git boundary. Let the agent inspect the workspace; do not paste large files, logs, diffs, or the whole chat.
+Send only the objective, constraints, relevant paths, assigned scope, completion criteria, concise handoff when needed, and the Git boundary. Let the agent inspect the workspace; do not paste large files, logs, diffs, or the whole chat.
 
 Require autonomous work, checks, and a final block of at most 12 lines:
 
@@ -70,7 +78,7 @@ Deep planning output must be at most 250 words.
 ## Availability, switching, and takeover
 
 - Start a new independent workstream on any available pool member; conversation continuity decides where continuing work stays.
-- If the current member hits a quota, rate limit, unavailable model, authentication error, or executable failure, switch to another available member. Its first call receives a concise handoff without `--continue`.
+- If the current member hits a quota, rate limit, unavailable model, authentication error, or executable failure, switch to another available member with a concise handoff.
 - Codex takes over only when no pool member is available. Continue from the current workspace and process state; do not restart completed work blindly.
 - When every member is quota-limited, the task is non-urgent, no delegated responsibility remains active, and quota is expected to refresh within two hours, Codex may wait and poll inside the shell. Do not poll through chat or wait longer without explicit user instruction.
 - Codex must take over immediately if delegated work is unfinished or active, including background experiments, jobs, services, downloads, partial implementations, or results needing monitoring or integration.
