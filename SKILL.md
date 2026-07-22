@@ -11,12 +11,12 @@ Delegate substantive work to external CLIs. Codex routes, manages Git, verifies 
 
 This is the only place that defines pool membership. Add or remove a CLI here; all entries are otherwise treated equally.
 
-Run commands from the target workspace; set the shell working directory or `cd` first. AGY has no `--cwd` flag.
+Run commands from the target workspace; set the shell working directory or `cd` first. AGY has no `--cwd` flag. Pool commands use headless print mode and skip interactive permission prompts.
 
 | CLI | Deep command | Fast command |
 |---|---|---|
-| `agy` | `agy {SESSION} --model claude-opus-4-6-thinking -p "{PROMPT}"` | `agy {SESSION} --model gemini-3.6-flash-high -p "{PROMPT}"` |
-| `agy2` | `agy2 {SESSION} --model claude-opus-4-6-thinking -p "{PROMPT}"` | `agy2 {SESSION} --model gemini-3.6-flash-high -p "{PROMPT}"` |
+| `agy` | `agy --dangerously-skip-permissions {SESSION} --model claude-opus-4-6-thinking -p "{PROMPT}"` | `agy --dangerously-skip-permissions {SESSION} --model gemini-3.6-flash-high -p "{PROMPT}"` |
+| `agy2` | `agy2 --dangerously-skip-permissions {SESSION} --model claude-opus-4-6-thinking -p "{PROMPT}"` | `agy2 --dangerously-skip-permissions {SESSION} --model gemini-3.6-flash-high -p "{PROMPT}"` |
 
 Use safe shell quoting for prompts. Each added CLI must provide fixed deep and fast commands.
 
