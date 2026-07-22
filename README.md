@@ -1,25 +1,23 @@
 # Codex Sub Agent
 
-A small, instruction-only Codex skill. It has no scripts, services, state manager, or dependencies.
+A small, instruction-only Codex skill for manually delegating work to an ordered pool of external AI CLI tools.
 
 ## Install
 
-Copy the entire `codex-sub-agent` folder to:
+Using Codex's built-in skill installer:
 
 ```text
-~/.agents/skills/codex-sub-agent/
+$skill-installer install https://github.com/lldois/codex-sub-agent/tree/main/skills/codex-sub-agent
 ```
 
-The final layout must be:
+The installed skill directory should contain:
 
 ```text
-~/.agents/skills/codex-sub-agent/
+codex-sub-agent/
 ├── SKILL.md
 └── agents/
     └── openai.yaml
 ```
-
-Restart Codex only if the skill does not appear automatically.
 
 ## Invoke
 
@@ -34,19 +32,18 @@ policy:
   allow_implicit_invocation: false
 ```
 
-## Customize the CLI pool
-
-Edit the `CLI pool` section in `SKILL.md`.
-
-Each CLI entry needs only:
-
-- one fixed deep-model command;
-- one fixed fast-model command;
-- its position in the fallback order.
-
-The default pool is:
+## Default CLI pool
 
 1. `agy`
 2. `agy1`
 
-Both use `Claude Opus 4.6 Thinking` for deep reasoning and `Gemini 3.6 Flash High` for execution. The two CLIs are treated as conversation-independent. `agy` is preferred until it reaches a clear limit, then the skill falls back to `agy1`.
+Both use:
+
+- Deep reasoning: `Claude Opus 4.6 Thinking`
+- Routine execution: `Gemini 3.6 Flash High`
+
+The two CLIs are conversation-independent. The skill prefers `agy`; after a clear quota or availability failure, it falls back to `agy1`. If all configured CLIs are unavailable, Codex completes the task directly.
+
+## Customize
+
+Edit `skills/codex-sub-agent/SKILL.md`. Each CLI pool entry needs a fixed deep-model command, a fixed fast-model command, and its fallback position.
