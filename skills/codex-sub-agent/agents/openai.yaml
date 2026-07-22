@@ -1,7 +1,0 @@
-interface:
-  display_name: "Codex Sub Agent"
-  short_description: "Delegate Codex work to external AI CLIs"
-  default_prompt: "Use $codex-sub-agent to supervise this task with the configured external CLI pool."
-
-policy:
-  allow_implicit_invocation: false
