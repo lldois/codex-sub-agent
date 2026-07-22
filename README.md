@@ -4,25 +4,26 @@ A small, instruction-only Codex skill for manually delegating work to an ordered
 
 ## Install
 
-Using Codex's built-in skill installer:
+In Codex, run:
 
 ```text
-$skill-installer install https://github.com/lldois/codex-sub-agent/tree/main/skills/codex-sub-agent
+$skill-installer install https://github.com/lldois/codex-sub-agent
 ```
 
-The installed skill directory should contain:
+Then invoke:
+
+```text
+$codex-sub-agent 分析当前项目的问题，提出方案并完成实现和测试
+```
+
+## Repository layout
 
 ```text
 codex-sub-agent/
 ├── SKILL.md
-└── agents/
-    └── openai.yaml
-```
-
-## Invoke
-
-```text
-$codex-sub-agent 分析当前项目的问题，提出方案并完成实现和测试
+├── agents/
+│   └── openai.yaml
+└── README.md
 ```
 
 The skill is manual-only because `agents/openai.yaml` sets:
@@ -46,4 +47,4 @@ The two CLIs are conversation-independent. The skill prefers `agy`; after a clea
 
 ## Customize
 
-Edit `skills/codex-sub-agent/SKILL.md`. Each CLI pool entry needs a fixed deep-model command, a fixed fast-model command, and its fallback position.
+Edit the CLI pool in `SKILL.md`. Each entry needs a fixed deep-model command, a fixed fast-model command, and its fallback position.
