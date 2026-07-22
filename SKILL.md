@@ -1,6 +1,6 @@
 ---
 name: codex-sub-agent
-description: Manual-only supervisor that delegates difficult reasoning and routine execution to an ordered pool of external AI CLIs, preserves continuing conversations, allows at most two safe parallel workers, handles temporary quota outages, and keeps all Git mutations under Codex control. Use only when the user explicitly invokes $codex-sub-agent.
+description: Manual-only supervisor that delegates difficult reasoning and routine execution to an equivalent pool of external AI CLIs, preserves continuing conversations, allows at most two safe parallel workers, handles temporary quota outages, and keeps all Git mutations under Codex control. Use only when the user explicitly invokes $codex-sub-agent.
 ---
 
 # Codex Sub Agent
@@ -9,16 +9,16 @@ Delegate substantive work to external CLIs. Codex routes, manages Git, verifies 
 
 ## CLI pool
 
-Run commands from the target workspace; set the shell working directory or `cd` first. AGY has no `--cwd` flag.
+All configured CLIs are equivalent. Run commands from the target workspace; set the shell working directory or `cd` first. AGY has no `--cwd` flag.
 
-| Priority | Role | Command |
+| CLI | Role | Command |
 |---|---|---|
 | `agy` | Deep | `agy {SESSION} --model claude-opus-4-6-thinking -p "{PROMPT}"` |
 | `agy` | Fast | `agy {SESSION} --model gemini-3.6-flash-high -p "{PROMPT}"` |
 | `agy2` | Deep | `agy2 {SESSION} --model claude-opus-4-6-thinking -p "{PROMPT}"` |
 | `agy2` | Fast | `agy2 {SESSION} --model gemini-3.6-flash-high -p "{PROMPT}"` |
 
-Use safe shell quoting for prompts. To add a CLI, provide fixed deep and fast commands and place it in the desired priority order.
+Use safe shell quoting for prompts. To add a CLI, provide fixed deep and fast commands; treat it as equivalent unless explicitly configured otherwise.
 
 ## Routing and conversations
 
@@ -28,7 +28,7 @@ Use safe shell quoting for prompts. To add a CLI, provide fixed deep and fast co
 - Mixed task: normally obtain one concise deep plan, then implement with the fast model. Keep both steps in the same CLI conversation when context helps.
 - Give each delegation a meaningful work unit; do not fragment one coherent task into many calls.
 - Keep a continuing workstream on the same healthy CLI and conversation. Set `{SESSION}` to `--continue` only for the same workstream, CLI, and workspace; otherwise omit it.
-- After failover, the new CLI's first call omits `--continue` and receives a concise handoff. Keep using that conversation for later related milestones unless the context is polluted or the workstream changes.
+- After switching CLIs, the new CLI's first call omits `--continue` and receives a concise handoff. Keep using that conversation for later related milestones unless the context is polluted or the workstream changes.
 
 ## Git boundary
 
@@ -67,12 +67,14 @@ NEXT: none or one required next action
 
 Deep planning output must be at most 250 words.
 
-## Availability and failover
+## Availability, switching, and takeover
 
-- Start new workstreams with `agy` unless known unavailable; on clear quota, rate-limit, model, authentication, or executable failure, use `agy2`.
-- Do not move an active workstream back merely because `agy` recovers; preserve its current conversation until a natural boundary or failure. A recovered higher-priority CLI may take a new independent workstream.
-- If all CLIs are unavailable: Codex takes over urgent, small, or manageable work. For non-urgent work likely to recover soon, wait and retry inside the shell without chat polling.
-- Default wait budget when unspecified: up to 15 minutes, retrying about every 5 minutes. Afterward, take over if practical or report the blocker. Do not retry known long-duration or daily limits repeatedly.
+- `agy` and `agy2` are equivalent. Start a new independent workstream on either available CLI; conversation continuity decides where continuing work stays.
+- If the current CLI hits a quota, rate limit, unavailable model, authentication error, or executable failure, switch to any other available CLI. Its first call receives a concise handoff without `--continue`.
+- Codex takes over only when all configured CLIs are unavailable. Continue from the current workspace and process state; do not restart completed work blindly.
+- Exception: when all CLIs are quota-limited, the work is non-urgent, no delegated responsibility remains active, and quota is known or reasonably expected to refresh within two hours, Codex may wait and poll inside the shell until recovery. Do not poll through chat or wait beyond two hours without explicit user instruction.
+- Codex must take over immediately if any delegated work is unfinished or still active, including background experiments, jobs, services, downloads, partial implementations, or results that still require monitoring or integration. Do not leave active work unattended while waiting for CLI quota recovery.
+- After takeover, inspect active processes, workspace changes, outputs, and logs, then monitor or finish the task directly. If waiting expires and no CLI recovers, take over; report a blocker only when Codex cannot proceed safely.
 
 ## Verification
 
