@@ -1,0 +1,6 @@
+interface:
+  display_name: "Codex Sub Agent"
+  short_description: "Manually delegate Codex work to external AI CLIs"
+
+policy:
+  allow_implicit_invocation: false
