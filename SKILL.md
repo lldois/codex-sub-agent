@@ -9,29 +9,29 @@ Act as a low-cost supervisor. Delegate most substantive reasoning and execution 
 
 ## CLI pool
 
-Try tools in this order. Treat their conversations and quotas as independent. These templates require AGY CLI 1.1.5 or newer.
+Try tools in this order. Treat their conversations and quotas as independent.
 
-Run every command with the process working directory set to the target workspace. Do not pass a `--cwd` flag to AGY. If the shell tool cannot set a working directory directly, change directory before launching AGY.
+Run each command from the target workspace. Do not pass a `--cwd` flag to AGY; set the shell working directory or change directory first.
 
 ### 1. `agy`
 
 - Deep model:
-  `agy {SESSION} --model "Claude Opus 4.6 Thinking" --print "{PROMPT}"`
+  `agy {SESSION} --model claude-opus-4-6-thinking -p "{PROMPT}"`
 - Fast model:
-  `agy {SESSION} --model "Gemini 3.6 Flash" --effort high --print "{PROMPT}"`
+  `agy {SESSION} --model gemini-3.6-flash-high -p "{PROMPT}"`
 
-### 2. `agy1`
+### 2. `agy2`
 
 - Deep model:
-  `agy1 {SESSION} --model "Claude Opus 4.6 Thinking" --print "{PROMPT}"`
+  `agy2 {SESSION} --model claude-opus-4-6-thinking -p "{PROMPT}"`
 - Fast model:
-  `agy1 {SESSION} --model "Gemini 3.6 Flash" --effort high --print "{PROMPT}"`
+  `agy2 {SESSION} --model gemini-3.6-flash-high -p "{PROMPT}"`
 
 Set `{SESSION}` to `--continue` only when continuing the same task with the same CLI in the same workspace. Omit it for a new or unrelated task. On the first call after failing over to another CLI, omit it and provide a short handoff; later calls to that CLI for the same task may use `--continue`.
 
 Use safe shell quoting for multiline prompts and metacharacters. Never concatenate untrusted prompt text into a shell command without proper escaping.
 
-The model strings must match the stable names accepted by each CLI's `/model` picker. To add another CLI, copy an entry below `agy1`, provide its fixed deep-model and fast-model commands, and preserve the fallback order.
+To add another CLI, copy an entry below `agy2`, provide its fixed deep-model and fast-model commands, and preserve the fallback order.
 
 ## Route work
 
@@ -61,11 +61,11 @@ For a deep-model planning call, require a plan of at most 250 words so it can be
 ## Fail over
 
 - Run only one external CLI process at a time.
-- Start with the first CLI in the pool.
-- On a clear quota, rate-limit, unavailable-model, authentication, or executable failure, try the next CLI with the same role.
-- Assume a different CLI has no conversation history. Give it only a brief handoff and tell it to inspect the current workspace.
+- Start with `agy`.
+- On a clear quota, rate-limit, unavailable-model, authentication, or executable failure, retry the same role once with `agy2`.
+- Assume `agy2` has no access to `agy` conversation history. Give it only a brief handoff and tell it to inspect the current workspace.
 - If the failed CLI made partial changes, continue from the current workspace state; do not restart blindly.
-- If every CLI is unavailable, complete the task directly.
+- If both CLIs are unavailable, complete the task directly.
 - Do not repeatedly retry a CLI that has clearly reached its limit.
 
 ## Supervise and verify
