@@ -1,11 +1,11 @@
 ---
 name: codex-sub-agent
-description: Manually supervise and delegate work to an ordered pool of external AI CLI tools. Use only when the user explicitly invokes $codex-sub-agent; send difficult reasoning to a fixed deep model, routine implementation to a fixed fast model, preserve useful conversations for continuing work, allow safe parallel use of independent CLIs, recover from temporary quota outages, and keep Codex focused on low-cost management and verification.
+description: Manually supervise and delegate work to an ordered pool of external AI CLI tools. Use only when the user explicitly invokes $codex-sub-agent; send difficult reasoning to a fixed deep model, routine implementation to a fixed fast model, preserve useful conversations for continuing work, allow safe parallel use of independent CLIs, recover from temporary quota outages, reserve all Git management for Codex, and keep Codex focused on low-cost supervision and verification.
 ---
 
 # Codex Sub Agent
 
-Act as a low-cost supervisor. Delegate most substantive reasoning and execution to external CLIs, wait for useful work to finish, perform cheap verification, and report the result.
+Act as a low-cost supervisor. Delegate most substantive reasoning and execution to external CLIs, wait for useful work to finish, manage all Git state yourself, perform cheap verification, and report the result.
 
 ## CLI pool
 
@@ -41,9 +41,19 @@ To add another CLI, copy an entry below `agy2`, provide fixed deep-model and fas
 - Because CLI conversations are independent, never assume one CLI can see another CLI's hidden history. Use the workspace and a concise handoff as the transfer boundary.
 - If a long task reaches a natural milestone, keep the current conversation for the next related milestone unless its context has become polluted or the workstream has materially changed.
 
+## Keep Git under Codex control
+
+- Codex exclusively owns all Git state and Git decisions.
+- External agents must not run any Git command, even read-only commands. This includes `git status`, `git diff`, `git log`, `git show`, `git branch`, `git worktree`, `git stash`, `git add`, `git commit`, `git checkout`, `git switch`, `git restore`, `git reset`, `git revert`, `git clean`, `git merge`, `git rebase`, `git pull`, `git fetch`, `git push`, and `git tag`.
+- External agents must not modify `.git`, Git hooks, Git configuration, index files, refs, branches, commits, stashes, submodules, or worktree metadata.
+- Codex checks the baseline Git state before delegation and inspects the resulting Git state after each agent finishes.
+- Codex alone creates or removes branches and worktrees, assigns isolated directories, stages files, reviews diffs, resolves conflicts, reverts changes, commits, and pushes.
+- If an external agent needs repository history, branch information, or a diff to solve the task, it must report the need as a blocker. Codex obtains the minimum required Git information and supplies a concise summary in a later prompt.
+- Every delegation prompt that permits workspace access must explicitly say: `Do not run Git commands or modify Git state. Codex manages Git.`
+
 ## Route work
 
-- Perform trivial management directly: concise inspection, known commands, file moves, `git status`, `git diff --stat`, targeted verification, and user-requested commits.
+- Perform management directly: Git inspection and all Git operations, concise inspection, known commands, file moves, targeted verification, and user-requested commits.
 - Use the deep model for novel ideas, difficult reasoning, architecture, experiment design, ambiguous decisions, difficult diagnosis, and interpretation of surprising results.
 - Use the fast model for ordinary implementation, code search, information search, debugging, tests, experiments, data processing, and routine edits.
 - For a mixed complex task, normally call the deep model once for a concise actionable plan, then call the fast model to implement and verify it.
@@ -55,24 +65,30 @@ To add another CLI, copy an entry below `agy2`, provide fixed deep-model and fas
 - Default to one external CLI process. Use two only when the subtasks are independent, parallelism clearly reduces elapsed time, and the machine has enough available memory.
 - If either task is memory-heavy or the machine is already under memory pressure, serialize the work instead of using both slots.
 - Different CLIs may run at the same time when their subtasks are independent and parallelism clearly reduces elapsed time.
-- Safe examples include two read-only investigations, work in separate repositories or worktrees, or disjoint file scopes with no shared generated state.
+- Safe examples include two read-only investigations, separate repositories, Codex-created separate worktrees, or disjoint file scopes with no shared generated state.
 - Do not run dependent stages in parallel. Planning that must guide implementation finishes before implementation starts.
-- Do not let two agents write overlapping files, mutate the same Git state, run conflicting experiments, or share one mutable output directory at the same time.
-- When both agents must write, isolate them in separate worktrees or clearly disjoint directories; otherwise serialize them.
+- Do not let two agents write overlapping files, share one mutable output directory, or run conflicting experiments at the same time.
+- When both agents must write, Codex must first isolate them in separate worktrees or clearly disjoint directories; otherwise serialize them. The agents themselves must not create, inspect, or manage worktrees through Git.
 - Do not run two concurrent processes from the same CLI when both would rely on that CLI's current `--continue` conversation. Use at most one active continuing process per CLI.
-- Give each parallel agent a precise scope and completion criterion. Merge or compare their results only after both finish.
+- Give each parallel agent a precise scope and completion criterion. Codex merges, compares, and validates their results only after both finish.
 
 ## Compose delegation prompts
 
-Send only the objective, essential constraints, relevant paths, assigned scope, and completion criteria. Tell the external agent to inspect the workspace itself. Do not paste large files, logs, diffs, or the whole chat.
+Send only the objective, essential constraints, relevant paths, assigned scope, and completion criteria. Tell the external agent to inspect ordinary workspace files itself. Do not paste large files, logs, diffs, or the whole chat.
 
-Ask it to work autonomously, perform its own checks, and end with at most 12 lines:
+Every prompt that permits workspace access must include:
+
+```text
+Do not run Git commands or modify Git state. Codex manages Git.
+```
+
+Ask the agent to work autonomously, perform non-Git checks, and end with at most 12 lines:
 
 ```text
 STATUS: done | blocked | failed
 SUMMARY: brief result
 CHANGED: files or none
-CHECKS: commands and outcomes
+CHECKS: non-Git commands and outcomes
 NEXT: none or one required next action
 ```
 
@@ -92,9 +108,11 @@ For a deep-model planning call, require a plan of at most 250 words so it can be
 
 ## Supervise and verify
 
+- Before delegation, Codex records the relevant Git baseline and checks for pre-existing user changes.
 - Wait for each required CLI command to finish. For parallel calls, wait for all required independent subtasks before integrating results.
 - Keep full CLI output out of the Codex conversation when possible. Consume the compact final block; inspect only the tail of detailed output on failure or contradiction.
-- Verify cheaply with exit status, targeted checks, output existence, `git status --short`, and `git diff --stat`.
+- After delegation, Codex alone runs `git status --short`, `git diff --stat`, and any necessary detailed Git inspection.
+- Verify behavior with exit status, targeted non-Git checks, tests, and output existence.
 - Inspect detailed diffs only when risk or failed verification requires it.
 - Do not redo or restate the external model's full reasoning.
 - Do not commit unless the user requested a commit or the surrounding task clearly requires one.
