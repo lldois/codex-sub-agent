@@ -36,14 +36,23 @@ policy:
 ## Default CLI pool
 
 1. `agy`
-2. `agy1`
+2. `agy2`
 
-Both use:
+Both expose the same model slugs and use:
 
-- Deep reasoning: `Claude Opus 4.6 Thinking`
-- Routine execution: `Gemini 3.6 Flash High`
+- Deep reasoning: `claude-opus-4-6-thinking`
+- Routine execution: `gemini-3.6-flash-high`
 
-The two CLIs are conversation-independent. The skill prefers `agy`; after a clear quota or availability failure, it falls back to `agy1`. If all configured CLIs are unavailable, Codex completes the task directly.
+Examples:
+
+```bash
+agy --model claude-opus-4-6-thinking
+agy --model gemini-3.6-flash-high
+agy2 --model claude-opus-4-6-thinking
+agy2 --model gemini-3.6-flash-high
+```
+
+The two CLIs are conversation-independent. The skill prefers `agy`; after a clear quota or availability failure, it falls back to `agy2`. If both are unavailable, Codex completes the task directly.
 
 ## Customize
 
