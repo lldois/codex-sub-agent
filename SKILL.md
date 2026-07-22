@@ -1,15 +1,15 @@
 ---
 name: codex-sub-agent
-description: Manually supervise and delegate work to an ordered pool of external AI CLI tools. Use only when the user explicitly invokes $codex-sub-agent; send difficult reasoning to a fixed deep model, routine implementation to a fixed fast model, reuse conversations when useful, fail over between independent CLIs, and keep Codex focused on low-cost management and verification.
+description: Manually supervise and delegate work to an ordered pool of external AI CLI tools. Use only when the user explicitly invokes $codex-sub-agent; send difficult reasoning to a fixed deep model, routine implementation to a fixed fast model, preserve useful conversations for continuing work, allow safe parallel use of independent CLIs, recover from temporary quota outages, and keep Codex focused on low-cost management and verification.
 ---
 
 # Codex Sub Agent
 
-Act as a low-cost supervisor. Delegate most substantive reasoning and execution to an external CLI, wait synchronously, perform cheap verification, and report the result.
+Act as a low-cost supervisor. Delegate most substantive reasoning and execution to external CLIs, wait for useful work to finish, perform cheap verification, and report the result.
 
 ## CLI pool
 
-Try tools in this order. Treat their conversations and quotas as independent.
+Use these CLIs in priority order. Their conversations and quotas are independent.
 
 Run each command from the target workspace. Do not pass a `--cwd` flag to AGY; set the shell working directory or change directory first.
 
@@ -27,11 +27,19 @@ Run each command from the target workspace. Do not pass a `--cwd` flag to AGY; s
 - Fast model:
   `agy2 {SESSION} --model gemini-3.6-flash-high -p "{PROMPT}"`
 
-Set `{SESSION}` to `--continue` only when continuing the same task with the same CLI in the same workspace. Omit it for a new or unrelated task. On the first call after failing over to another CLI, omit it and provide a short handoff; later calls to that CLI for the same task may use `--continue`.
-
 Use safe shell quoting for multiline prompts and metacharacters. Never concatenate untrusted prompt text into a shell command without proper escaping.
 
-To add another CLI, copy an entry below `agy2`, provide its fixed deep-model and fast-model commands, and preserve the fallback order.
+To add another CLI, copy an entry below `agy2`, provide fixed deep-model and fast-model commands, and preserve the desired priority order.
+
+## Preserve conversations
+
+- Treat one CLI conversation as sticky to one continuing workstream.
+- Set `{SESSION}` to `--continue` only when continuing the same workstream with the same CLI in the same workspace. Omit it for a new or unrelated task.
+- Prefer keeping a continuing task on the same healthy CLI and in the same conversation. Do not switch merely to rebalance load or because another CLI has recovered.
+- For a mixed task, prefer using the same CLI conversation for the deep-model planning step and the fast-model implementation step when continuing context is useful.
+- After switching to another CLI, omit `--continue` on its first call and provide a short handoff. Later calls to that CLI for the same workstream may use `--continue`.
+- Because CLI conversations are independent, never assume one CLI can see another CLI's hidden history. Use the workspace and a concise handoff as the transfer boundary.
+- If a long task reaches a natural milestone, keep the current conversation for the next related milestone unless its context has become polluted or the workstream has materially changed.
 
 ## Route work
 
@@ -40,11 +48,20 @@ To add another CLI, copy an entry below `agy2`, provide its fixed deep-model and
 - Use the fast model for ordinary implementation, code search, information search, debugging, tests, experiments, data processing, and routine edits.
 - For a mixed complex task, normally call the deep model once for a concise actionable plan, then call the fast model to implement and verify it.
 - Do not split one coherent task into many small delegations. Give one external turn enough scope to finish a meaningful unit of work.
-- Reuse the same CLI conversation for a continuing task whenever useful.
+
+## Use CLIs in parallel safely
+
+- Different CLIs may run at the same time when their subtasks are independent and parallelism clearly reduces elapsed time.
+- Safe examples include two read-only investigations, work in separate repositories or worktrees, or disjoint file scopes with no shared generated state.
+- Do not run dependent stages in parallel. Planning that must guide implementation finishes before implementation starts.
+- Do not let two agents write overlapping files, mutate the same Git state, run conflicting experiments, or share one mutable output directory at the same time.
+- When both agents must write, isolate them in separate worktrees or clearly disjoint directories; otherwise serialize them.
+- Do not run two concurrent processes from the same CLI when both would rely on that CLI's current `--continue` conversation. Use at most one active continuing process per CLI.
+- Give each parallel agent a precise scope and completion criterion. Merge or compare their results only after both finish.
 
 ## Compose delegation prompts
 
-Send only the objective, essential constraints, relevant paths, and completion criteria. Tell the external agent to inspect the workspace itself. Do not paste large files, logs, diffs, or the whole chat.
+Send only the objective, essential constraints, relevant paths, assigned scope, and completion criteria. Tell the external agent to inspect the workspace itself. Do not paste large files, logs, diffs, or the whole chat.
 
 Ask it to work autonomously, perform its own checks, and end with at most 12 lines:
 
@@ -56,21 +73,23 @@ CHECKS: commands and outcomes
 NEXT: none or one required next action
 ```
 
-For a deep-model planning call, require a plan of at most 250 words so it can be passed cheaply to the fast model.
+For a deep-model planning call, require a plan of at most 250 words so it can be passed cheaply to the fast model when needed.
 
-## Fail over
+## Handle quota and temporary unavailability
 
-- Run only one external CLI process at a time.
-- Start with `agy`.
-- On a clear quota, rate-limit, unavailable-model, authentication, or executable failure, retry the same role once with `agy2`.
-- Assume `agy2` has no access to `agy` conversation history. Give it only a brief handoff and tell it to inspect the current workspace.
-- If the failed CLI made partial changes, continue from the current workspace state; do not restart blindly.
-- If both CLIs are unavailable, complete the task directly.
-- Do not repeatedly retry a CLI that has clearly reached its limit.
+- Start a new workstream with `agy` unless it is already known to be unavailable. Use `agy2` after a clear quota, rate-limit, unavailable-model, authentication, or executable failure.
+- If the current workstream is already progressing successfully on `agy2`, do not move it back to `agy` merely because `agy` later recovers. Preserve the active conversation and switch only at a natural boundary or after failure.
+- A recovered higher-priority CLI may be used for a new independent workstream.
+- If all CLIs are currently unavailable, choose between direct takeover and bounded waiting according to urgency, expected recovery time, and how costly the task is for Codex to complete itself.
+- For urgent, small, or mechanically manageable work, Codex should take over directly.
+- For non-urgent work where quota recovery is likely soon, wait without consuming conversational turns, then retry. Use a small bounded window rather than an unbounded loop; when the user gives no budget, a reasonable default is up to 15 minutes with retries about every 5 minutes.
+- Perform waiting inside the shell process when possible. Do not repeatedly narrate or poll through chat messages.
+- After the wait budget expires, either take over directly if practical or report the temporary blocker instead of retrying indefinitely.
+- Do not repeatedly retry a CLI that has clearly reached a long-duration or daily limit.
 
 ## Supervise and verify
 
-- Wait for each CLI command to finish; do not poll it through repeated conversational turns.
+- Wait for each required CLI command to finish. For parallel calls, wait for all required independent subtasks before integrating results.
 - Keep full CLI output out of the Codex conversation when possible. Consume the compact final block; inspect only the tail of detailed output on failure or contradiction.
 - Verify cheaply with exit status, targeted checks, output existence, `git status --short`, and `git diff --stat`.
 - Inspect detailed diffs only when risk or failed verification requires it.
