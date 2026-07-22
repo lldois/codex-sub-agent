@@ -51,6 +51,9 @@ To add another CLI, copy an entry below `agy2`, provide fixed deep-model and fas
 
 ## Use CLIs in parallel safely
 
+- Never run more than two external CLI processes at the same time, regardless of how many CLIs are configured. A third process must wait until one active process exits.
+- Default to one external CLI process. Use two only when the subtasks are independent, parallelism clearly reduces elapsed time, and the machine has enough available memory.
+- If either task is memory-heavy or the machine is already under memory pressure, serialize the work instead of using both slots.
 - Different CLIs may run at the same time when their subtasks are independent and parallelism clearly reduces elapsed time.
 - Safe examples include two read-only investigations, work in separate repositories or worktrees, or disjoint file scopes with no shared generated state.
 - Do not run dependent stages in parallel. Planning that must guide implementation finishes before implementation starts.
